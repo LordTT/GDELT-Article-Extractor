@@ -5,8 +5,62 @@ from __future__ import annotations
 from datetime import date
 import re
 from typing import List
+from urllib.parse import unquote, urlparse
 
 import pandas as pd
+
+
+def infer_title_from_url(url: object) -> str:
+  """Infers a readable article title from a URL path slug.
+
+  Args:
+    url: URL string or object value.
+
+  Returns:
+    Human-readable title guess, or empty string when no reasonable slug is found.
+  """
+  if url is None or pd.isna(url):
+    return ""
+
+  text = str(url).strip()
+  if not text:
+    return ""
+
+  parsed = urlparse(text)
+  path = unquote(parsed.path or "").strip("/")
+  if not path:
+    return ""
+
+  # Prefer the last non-empty path segment because most news URLs store the title there.
+  segments = [segment for segment in path.split("/") if segment]
+  if not segments:
+    return ""
+
+  slug = segments[-1]
+  slug = re.sub(r"\.(html?|aspx?|php)$", "", slug, flags=re.IGNORECASE)
+  slug = re.sub(r"[_\-\+]+", " ", slug)
+  slug = re.sub(r"\s+", " ", slug).strip()
+  if not slug:
+    return ""
+
+  # Avoid returning purely numeric/technical IDs as titles.
+  if re.fullmatch(r"[0-9\W_]+", slug):
+    return ""
+
+  words = slug.split(" ")
+  cleaned_words: list[str] = []
+  for word in words:
+    if len(word) > 48 and any(ch.isdigit() for ch in word):
+      continue
+    cleaned_words.append(word)
+
+  if not cleaned_words:
+    return ""
+
+  candidate = " ".join(cleaned_words)
+  if len(candidate) > 160:
+    candidate = candidate[:157].rstrip() + "..."
+  return candidate
 
 
 def parse_csv_input(raw: str) -> List[str]:

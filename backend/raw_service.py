@@ -12,7 +12,7 @@ import pandas as pd
 import requests
 import streamlit as st
 
-from .utils import build_keyword_regex, to_sql_date_int
+from .utils import build_keyword_regex, infer_title_from_url, to_sql_date_int
 
 MASTER_FILELIST_URL = "http://data.gdeltproject.org/gdeltv2/masterfilelist.txt"
 CACHE_DIR = Path(".cache/gdeltv2")
@@ -468,6 +468,10 @@ def run_query(
   joined = joined.sort_values(["SQLDATE", "MentionTimeDate"], ascending=[False, False])
   joined = joined.drop_duplicates(subset=["GLOBALEVENTID", "ArticleURL"])
   joined = joined.head(row_limit)
+
+  empty_title_mask = joined["ArticleTitle"].fillna("").astype(str).str.strip() == ""
+  if empty_title_mask.any():
+    joined.loc[empty_title_mask, "ArticleTitle"] = joined.loc[empty_title_mask, "ArticleURL"].map(infer_title_from_url)
 
   return joined[
     [

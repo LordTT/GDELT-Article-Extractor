@@ -9,7 +9,7 @@ from typing import List
 import pandas as pd
 import streamlit as st
 
-from .utils import build_keyword_regex, classify_gkg_supertheme, to_sql_date_int
+from .utils import build_keyword_regex, classify_gkg_supertheme, infer_title_from_url, to_sql_date_int
 
 
 def _find_local_service_account_file() -> Path | None:
@@ -321,4 +321,9 @@ def run_query(
     )
 
   job_config = bigquery.QueryJobConfig(query_parameters=query_parameters)
-  return client.query(query, job_config=job_config).result().to_dataframe(create_bqstorage_client=False)
+  df = client.query(query, job_config=job_config).result().to_dataframe(create_bqstorage_client=False)
+  if not df.empty and "ArticleTitle" in df.columns and "ArticleURL" in df.columns:
+    empty_mask = df["ArticleTitle"].fillna("").astype(str).str.strip() == ""
+    if empty_mask.any():
+      df.loc[empty_mask, "ArticleTitle"] = df.loc[empty_mask, "ArticleURL"].map(infer_title_from_url)
+  return df

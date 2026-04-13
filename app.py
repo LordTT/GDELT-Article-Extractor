@@ -462,10 +462,24 @@ def render_results(df: pd.DataFrame) -> None:
     display_df.loc[selected_row_indices, "Focus"] = "👉"
     if len(selected_row_indices) > 1:
       cluster_df = display_df.iloc[selected_row_indices].copy()
-      cluster_labels = [
-        f"{i + 1}. {row['Event Date']} | {format_event_code(row['Event Code'])} | {row['Source Name'] or 'Unknown'}"
-        for i, (_, row) in enumerate(cluster_df.iterrows())
-      ]
+
+      def short_text(value: object, limit: int = 60) -> str:
+        text = str(value or "").strip()
+        if not text:
+          return ""
+        return text if len(text) <= limit else text[: limit - 1] + "..."
+
+      cluster_labels = []
+      for i, (_, row) in enumerate(cluster_df.iterrows()):
+        base = f"{i + 1}. {row['Event Date']} | {format_event_code(row['Event Code'])} | {row['Source Name'] or 'Unknown'}"
+        title = short_text(row.get("Article Title", ""), limit=80)
+        topics = short_text(row.get("Matched Topics", ""), limit=80)
+        if title:
+          base += f" | Title: {title}"
+        if topics:
+          base += f" | Topics: {topics}"
+        cluster_labels.append(base)
+
       default_label = cluster_labels[0]
       if selected_row_index in selected_row_indices:
         default_label = cluster_labels[selected_row_indices.index(selected_row_index)]
@@ -506,8 +520,9 @@ def render_results(df: pd.DataFrame) -> None:
       matched_topics = str(selected_record["Matched Topics"]).strip()
       st.markdown(f"**Article title:** {article_title or 'N/A'}")
       st.markdown(f"**Matched topics:** {matched_topics or 'N/A'}")
-      if str(selected_record["Article URL"]).strip():
-        st.markdown(f"[Open article ↗]({selected_record['Article URL']})")
+      article_url = str(selected_record["Article URL"]).strip()
+      if article_url:
+        st.markdown(f"**Article URL:** [{article_url}]({article_url})")
 
     selected_block = display_df.iloc[selected_row_indices]
     remaining_block = display_df.drop(index=selected_row_indices)
