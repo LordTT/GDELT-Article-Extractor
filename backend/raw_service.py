@@ -16,6 +16,7 @@ from .utils import build_keyword_regex, to_sql_date_int
 
 MASTER_FILELIST_URL = "http://data.gdeltproject.org/gdeltv2/masterfilelist.txt"
 CACHE_DIR = Path(".cache/gdeltv2")
+PARSED_CACHE_DIR = CACHE_DIR / "parsed"
 MASTERFILELIST_CACHE_PATH = CACHE_DIR / "masterfilelist.txt"
 MASTERFILELIST_TTL_SECONDS = 60 * 30
 
@@ -199,6 +200,35 @@ def download_cached(url: str) -> Path:
   return target
 
 
+def parsed_cache_path(source_path: Path, dataset_name: str) -> Path:
+  """Builds parsed-cache path for a downloaded raw ZIP file.
+
+  Args:
+    source_path: Path to cached raw ZIP file.
+    dataset_name: Logical dataset name (events, mentions, or gkg).
+
+  Returns:
+    Target Parquet cache path.
+  """
+  PARSED_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+  return PARSED_CACHE_DIR / f"{source_path.name}.{dataset_name}.parquet"
+
+
+def can_use_parsed_cache(source_path: Path, cache_path: Path) -> bool:
+  """Checks whether a parsed cache file can be reused.
+
+  Args:
+    source_path: Path to source ZIP file.
+    cache_path: Path to parsed Parquet cache.
+
+  Returns:
+    True if parsed cache exists, is non-empty, and is at least as new as source.
+  """
+  if not cache_path.exists() or cache_path.stat().st_size <= 0:
+    return False
+  return cache_path.stat().st_mtime >= source_path.stat().st_mtime
+
+
 @st.cache_data(show_spinner=False, ttl=86400)
 def load_events(paths: List[Path]) -> pd.DataFrame:
   """Loads event rows from raw ZIP files.
@@ -211,18 +241,23 @@ def load_events(paths: List[Path]) -> pd.DataFrame:
   """
   frames: List[pd.DataFrame] = []
   for path in paths:
-    df = pd.read_csv(
-      path,
-      sep="\t",
-      header=None,
-      compression="zip",
-      usecols=EVENT_COLS,
-      dtype=str,
-      encoding="latin-1",
-      on_bad_lines="skip",
-      low_memory=False,
-    )
-    df.columns = EVENT_COL_NAMES
+    cache_path = parsed_cache_path(path, "events")
+    if can_use_parsed_cache(path, cache_path):
+      df = pd.read_parquet(cache_path)
+    else:
+      df = pd.read_csv(
+        path,
+        sep="\t",
+        header=None,
+        compression="zip",
+        usecols=EVENT_COLS,
+        dtype=str,
+        encoding="latin-1",
+        on_bad_lines="skip",
+        low_memory=False,
+      )
+      df.columns = EVENT_COL_NAMES
+      df.to_parquet(cache_path, index=False)
     frames.append(df)
 
   if not frames:
@@ -247,18 +282,23 @@ def load_mentions(paths: List[Path]) -> pd.DataFrame:
   """
   frames: List[pd.DataFrame] = []
   for path in paths:
-    df = pd.read_csv(
-      path,
-      sep="\t",
-      header=None,
-      compression="zip",
-      usecols=MENTION_COLS,
-      dtype=str,
-      encoding="latin-1",
-      on_bad_lines="skip",
-      low_memory=False,
-    )
-    df.columns = MENTION_COL_NAMES
+    cache_path = parsed_cache_path(path, "mentions")
+    if can_use_parsed_cache(path, cache_path):
+      df = pd.read_parquet(cache_path)
+    else:
+      df = pd.read_csv(
+        path,
+        sep="\t",
+        header=None,
+        compression="zip",
+        usecols=MENTION_COLS,
+        dtype=str,
+        encoding="latin-1",
+        on_bad_lines="skip",
+        low_memory=False,
+      )
+      df.columns = MENTION_COL_NAMES
+      df.to_parquet(cache_path, index=False)
     frames.append(df)
 
   if not frames:
@@ -282,18 +322,23 @@ def load_gkg(paths: List[Path]) -> pd.DataFrame:
   """
   frames: List[pd.DataFrame] = []
   for path in paths:
-    df = pd.read_csv(
-      path,
-      sep="\t",
-      header=None,
-      compression="zip",
-      usecols=GKG_COLS,
-      dtype=str,
-      encoding="latin-1",
-      on_bad_lines="skip",
-      low_memory=False,
-    )
-    df.columns = GKG_COL_NAMES
+    cache_path = parsed_cache_path(path, "gkg")
+    if can_use_parsed_cache(path, cache_path):
+      df = pd.read_parquet(cache_path)
+    else:
+      df = pd.read_csv(
+        path,
+        sep="\t",
+        header=None,
+        compression="zip",
+        usecols=GKG_COLS,
+        dtype=str,
+        encoding="latin-1",
+        on_bad_lines="skip",
+        low_memory=False,
+      )
+      df.columns = GKG_COL_NAMES
+      df.to_parquet(cache_path, index=False)
     frames.append(df)
 
   if not frames:
