@@ -458,8 +458,14 @@ def render_results(df: pd.DataFrame) -> None:
   )
   display_df.insert(0, "Focus", "")
 
+  valid_row_indices = [idx for idx in selected_row_indices if 0 <= idx < len(display_df)]
+  selected_row_indices = valid_row_indices
+  if selected_row_index is not None and not (0 <= selected_row_index < len(display_df)):
+    selected_row_index = None
+
   if selected_row_indices:
-    display_df.loc[selected_row_indices, "Focus"] = "👉"
+    focus_col_idx = int(display_df.columns.get_loc("Focus"))
+    display_df.iloc[selected_row_indices, focus_col_idx] = "👉"
     if len(selected_row_indices) > 1:
       cluster_df = display_df.iloc[selected_row_indices].copy()
 
@@ -494,6 +500,9 @@ def render_results(df: pd.DataFrame) -> None:
       selected_row_index = selected_row_indices[cluster_labels.index(chosen_label)]
       st.session_state["selected_map_row_index"] = selected_row_index
 
+    if selected_row_index is None:
+      selected_row_index = selected_row_indices[0]
+
     selected_record = display_df.iloc[selected_row_index]
     st.info(
       f"Focused cluster: {len(selected_row_indices)} article(s) at {selected_record['Event Location']}"
@@ -525,7 +534,7 @@ def render_results(df: pd.DataFrame) -> None:
         st.markdown(f"**Article URL:** [{article_url}]({article_url})")
 
     selected_block = display_df.iloc[selected_row_indices]
-    remaining_block = display_df.drop(index=selected_row_indices)
+    remaining_block = display_df.drop(index=display_df.index[selected_row_indices])
     display_df = pd.concat([selected_block, remaining_block], ignore_index=True)
   else:
     st.caption("Click a point on the map to show that event's details and article link here.")
