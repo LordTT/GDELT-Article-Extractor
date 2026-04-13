@@ -228,7 +228,7 @@ Set `GOOGLE_APPLICATION_CREDENTIALS` env var or place service account JSON in pr
 
 - **GDELT 2.0 docs**: https://www.gdeltproject.org/
 - **CAMEO event codes**: https://www.gdeltproject.org/data/lookups/CAMEO.eventcodes.txt
-- **GKG themes**: https://data.gdeltproject.org/api/v2/guides/LOOKUP-GKGTHEMES.TXT
+- **GKG themes**: http://data.gdeltproject.org/api/v2/guides/LOOKUP-GKGTHEMES.TXT
 - **Country codes (FIPS)**: https://www.gdeltproject.org/data/lookups/FIPS.country.txt
 
 ## Notes
